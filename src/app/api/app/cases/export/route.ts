@@ -22,6 +22,7 @@ import {
 import { generateXlsx } from "@/lib/case-export/xlsx";
 import { generateDocx } from "@/lib/case-export/docx";
 import { generatePdf } from "@/lib/case-export/pdf";
+import { findCasesInOrder } from "@/lib/case-query";
 
 // The PDF (pdfkit) generator loads AFM font files at runtime via
 // `fs.readFileSync` — that requires the full Node runtime, NOT the edge
@@ -71,20 +72,6 @@ export async function POST(request: Request) {
   const guard = await requirePartner(request);
   if ("error" in guard) return guard.error;
 
-  // Exporting the rolls is office-admin only. The UI hides the menu for
-  // everyone else; this is the server half so a crafted POST can't pull
-  // the whole case register out as a file. (partner_admin is coerced to
-  // role "admin", so the role check covers it.)
-  if (guard.ctx.user.role !== "admin") {
-    return NextResponse.json(
-      { error: "Only the office admin can export the case rolls." },
-      {
-        status: 403,
-        headers: guard.ctx.isMobile ? corsHeaders() : undefined,
-      }
-    );
-  }
-
   const body = (await request.json().catch(() => ({}))) as ExportBody;
   const format = body.format;
   if (format !== "xlsx" && format !== "docx" && format !== "pdf") {
@@ -122,6 +109,21 @@ export async function POST(request: Request) {
     partnerId: partnerObjId,
     ...readCaseFilterParams(filterSource),
   };
+
+  // Anyone in the office can download the active Case Vault — the
+  // chambers asked for it; it's the same rows every member already sees
+  // in the list, and requirePartner keeps it to their own office. The
+  // disposed archive stays with the office admin. (partner_admin is
+  // coerced to role "admin", so the role check covers it.)
+  if (filterInput.scope === "disposed" && guard.ctx.user.role !== "admin") {
+    return NextResponse.json(
+      { error: "Only the office admin can export the disposed archive." },
+      {
+        status: 403,
+        headers: guard.ctx.isMobile ? corsHeaders() : undefined,
+      }
+    );
+  }
   // A non-empty selection wins: export precisely those matters, scoped to
   // the partner + the active/disposed scope so a stale id can't leak rows
   // from another chambers or the wrong shelf.
@@ -135,15 +137,17 @@ export async function POST(request: Request) {
         }
       : buildCaseFilter(filterInput);
 
-  // The archive reads best newest-disposal-first; the active roll keeps
-  // its soonest-hearing-first ordering.
-  const sortSpec: Record<string, 1 | -1> =
-    filterInput.scope === "disposed"
-      ? { disposedAt: -1 }
-      : { nextHearingDate: 1, updatedAt: -1 };
-
+  // The archive reads best newest-disposal-first. The active roll reads
+  // like a cause list — hearing day, then court in Court Hub order —
+  // whatever order the list on screen happens to be in, because that's
+  // what the printed report is for.
   const [docs, partner] = await Promise.all([
-    Case.find(filter).sort(sortSpec).limit(MAX_EXPORT_ROWS).lean(),
+    filterInput.scope === "disposed"
+      ? Case.find(filter)
+          .sort({ disposedAt: -1 })
+          .limit(MAX_EXPORT_ROWS)
+          .lean()
+      : findCasesInOrder(filter, "hearing", { limit: MAX_EXPORT_ROWS }),
     Partner.findById(partnerObjId).lean(),
   ]);
 

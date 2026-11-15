@@ -10,7 +10,8 @@ import {
   buildCaseFilter,
   readCaseFilterParams,
 } from "@/lib/case-filter";
-import { buildCaseSort, readCaseSort } from "@/lib/case-sort";
+import { readCaseSort } from "@/lib/case-sort";
+import { findCasesInOrder } from "@/lib/case-query";
 import {
   normalizeCnr,
   findCnrConflict,
@@ -60,11 +61,7 @@ export async function GET(request: Request) {
   const sort = readCaseSort(url.searchParams.get("sort"));
 
   const [docs, total] = await Promise.all([
-    Case.find(filter)
-      .sort(buildCaseSort(sort))
-      .skip(skip)
-      .limit(limit)
-      .lean(),
+    findCasesInOrder(filter, sort, { skip, limit }),
     Case.countDocuments(filter),
   ]);
 

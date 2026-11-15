@@ -19,6 +19,7 @@ import {
 import { generateXlsx } from "@/lib/case-export/xlsx";
 import { generateDocx } from "@/lib/case-export/docx";
 import { generatePdf } from "@/lib/case-export/pdf";
+import { findCasesInOrder } from "@/lib/case-query";
 
 // pdfkit loads AFM fonts via fs at runtime — full Node runtime only.
 export const runtime = "nodejs";
@@ -79,19 +80,43 @@ function toExportRow(r: HearingRow): CaseExportRow {
   };
 }
 
+// The printed list reads like a cause list: hearing day first, then court
+// in Court Hub order, then case number — the same "hearing" order the Case
+// Vault export uses (findCasesInOrder), so both downloads agree. The
+// Hearing Track screen keeps its own order; only the file is re-sorted.
+// Undated matters (Pending, All) stay at the end, where the Hearing Track
+// puts them.
+async function inCauseListOrder(
+  items: HearingRow[],
+  partnerId: mongoose.Types.ObjectId
+): Promise<HearingRow[]> {
+  if (items.length < 2) return items;
+  const ordered = await findCasesInOrder(
+    {
+      partnerId,
+      _id: { $in: items.map((r) => new mongoose.Types.ObjectId(r.id)) },
+    },
+    "hearing",
+    { limit: items.length }
+  );
+  const rank = new Map(ordered.map((c, i) => [String(c._id), i]));
+  const last = Number.MAX_SAFE_INTEGER;
+  const sorted = [...items].sort(
+    (a, b) => (rank.get(a.id) ?? last) - (rank.get(b.id) ?? last)
+  );
+  return [
+    ...sorted.filter((r) => r.nextHearingDate),
+    ...sorted.filter((r) => !r.nextHearingDate),
+  ];
+}
+
 export async function GET(request: Request) {
   const guard = await requirePartner(request);
   if ("error" in guard) return guard.error;
 
-  // Exporting is office-admin only — the client was explicit that export
-  // options belong to the partner admin. The UI hides the menu for
-  // everyone else; this is the server half.
-  if (guard.ctx.user.role !== "admin") {
-    return NextResponse.json(
-      { error: "Only the office admin can export the hearing track." },
-      { status: 403, headers: guard.ctx.isMobile ? corsHeaders() : undefined }
-    );
-  }
+  // Any member of the office may export the hearing track — it carries the
+  // same rows every member already sees on the Hearing Track screen. (The
+  // disposed-archive export stays office-admin only.)
 
   const url = new URL(request.url);
   const bucketParam = url.searchParams.get("bucket");
@@ -118,9 +143,10 @@ export async function GET(request: Request) {
     Partner.findById(partnerObjId).lean(),
   ]);
 
-  // Apply the same search the user had on screen so the file matches the
-  // view exactly.
-  const rows = filterHearingRows(items, q).map(toExportRow);
+  // Apply the same search the user had on screen so the file carries the
+  // same matters, then lay them out date-wise and court-wise.
+  const ordered = await inCauseListOrder(items, partnerObjId);
+  const rows = filterHearingRows(ordered, q).map(toExportRow);
 
   const filterLines: string[] = [`Hearing track — ${BUCKET_LABEL[bucket]}`];
   if (q.trim()) filterLines.push(`Search — "${q.trim()}"`);

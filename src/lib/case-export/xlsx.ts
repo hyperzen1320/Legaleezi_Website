@@ -15,15 +15,15 @@ import { LOGO_PNG_BASE64 } from "./logo";
 //   • Header band text            → ivory          (#f5ebd6)
 //   • Monogram disc background    → copper         (#c5853a)
 //   • Monogram text               → ink            (#0a1124)
-//   • Table header row background → copper         (#c5853a)
-//   • Table header text           → copper-text    (#1f1308)
-//   • Zebra stripe (every other)  → canvas-2       (#ebe2d0)
+//   • Table header row background → none (plain white)
+//   • Table header text           → ink, bold      (#0a1124)
+//   • Table header bottom rule    → copper         (#c5853a)
+//   • Body rows                   → plain white, no alternate shading
 
 const INK = "FF0A1124";
 const IVORY = "FFF5EBD6";
 const COPPER = "FFC5853A";
 const COPPER_TEXT = "FF1F1308";
-const CANVAS_2 = "FFEBE2D0";
 const EDGE = "FFD9CFB8";
 
 export async function generateXlsx(input: CaseExportInput): Promise<Buffer> {
@@ -172,12 +172,7 @@ export async function generateXlsx(input: CaseExportInput): Promise<Buffer> {
       name: "Calibri",
       size: 10,
       bold: true,
-      color: { argb: COPPER_TEXT },
-    };
-    cell.fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: COPPER },
+      color: { argb: INK },
     };
     cell.alignment = {
       vertical: "middle",
@@ -186,13 +181,13 @@ export async function generateXlsx(input: CaseExportInput): Promise<Buffer> {
     };
     cell.border = {
       top: { style: "thin", color: { argb: EDGE } },
-      bottom: { style: "thin", color: { argb: EDGE } },
+      bottom: { style: "medium", color: { argb: COPPER } },
       left: { style: "thin", color: { argb: EDGE } },
       right: { style: "thin", color: { argb: EDGE } },
     };
   });
 
-  // Body rows with zebra striping.
+  // Body rows, all on plain white.
   input.cases.forEach((row, i) => {
     const dataRow = sheet.addRow(
       input.columns.map((c) => valueFor(c, row, i))
@@ -212,13 +207,6 @@ export async function generateXlsx(input: CaseExportInput): Promise<Buffer> {
         horizontal: col?.align || "left",
         wrapText: true,
       };
-      if (i % 2 === 1) {
-        cell.fill = {
-          type: "pattern",
-          pattern: "solid",
-          fgColor: { argb: CANVAS_2 },
-        };
-      }
       cell.border = {
         bottom: { style: "thin", color: { argb: EDGE } },
         right: { style: "thin", color: { argb: EDGE } },

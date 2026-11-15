@@ -27,7 +27,6 @@ export default async function HearingTrackPage({
   const partnerId = session?.user?.partnerId
     ? new mongoose.Types.ObjectId(session.user.partnerId)
     : null;
-  const isAdmin = session?.user?.userType === "partner_admin";
 
   let items: Awaited<ReturnType<typeof loadHearingsBucket>>["items"] = [];
   let counts = { today: 0, tomorrow: 0, pending: 0, all: 0 };
@@ -55,7 +54,6 @@ export default async function HearingTrackPage({
           counts={counts}
           officeName={officeName}
           noticeTemplate={noticeTemplate}
-          isAdmin={isAdmin}
         />
       </div>
     </div>
