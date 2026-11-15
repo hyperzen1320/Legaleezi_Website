@@ -20,7 +20,7 @@ import { LOGO_PNG_BUFFER } from "./logo";
 //   │  Filter: Court — DJK · Krishnagiri                                 │  ← muted italic
 //   │                                                                    │
 //   │  ┌─────┬───────┬────────┬─────────────┬──────────────┐             │
-//   │  │S.NO │ FILE  │ CASE   │ CLIENT NAME │ APPEARING    │  ← copper   │
+//   │  │S.NO │ FILE  │ CASE   │ CLIENT NAME │ APPEARING    │  ← tinted   │
 //   │  │     │ NO    │ NO     │             │ FOR          │     header  │
 //   │  ├─────┼───────┼────────┼─────────────┼──────────────┤             │
 //   │  │  1  │ NLD…  │ O.S. … │ Hameera     │ Defendant    │  ← body row │
@@ -44,8 +44,9 @@ const INK = "#0a1124";
 const IVORY = "#f5ebd6";
 const COPPER = "#c5853a";
 const COPPER_TEXT = "#1f1308";
-const COPPER_DEEP = "#9b6622";
-const CANVAS_2 = "#ebe2d0";
+// The table carries no shading at all — the heading row and every body
+// row sit on plain white. The heading reads as a heading from its bold
+// type and the copper rule beneath it.
 const EDGE = "#d9cfb8";
 const EDGE_STRONG = "#a89875";
 const MUTED = "#6b6253";
@@ -263,7 +264,7 @@ function drawHeader(
     .rect(MARGIN, MARGIN, contentWidth, HEADER_BAND_HEIGHT)
     .fill(INK);
 
-  // Brand mark, sat directly on the ink band (the coral logo reads well on
+  // Brand mark, sat directly on the ink band (the cream logo reads well on
   // the dark band, so no backing disc is needed).
   const logoH = 36;
   doc.image(LOGO_PNG_BUFFER, MARGIN + 16, MARGIN + (HEADER_BAND_HEIGHT - logoH) / 2, {
@@ -369,9 +370,7 @@ function drawTableHeader(
   );
   const totalWidth = cols.reduce((acc, c) => acc + c.width, 0);
 
-  doc.rect(MARGIN, y, totalWidth, rowH).fill(COPPER);
-
-  doc.fillColor(COPPER_TEXT).font("Helvetica-Bold").fontSize(FONT_SIZE);
+  doc.fillColor(INK).font("Helvetica-Bold").fontSize(FONT_SIZE);
   for (const col of cols) {
     const innerW = col.width - CELL_PAD_X * 2;
     const textH = doc.heightOfString(col.def.label.toUpperCase(), {
@@ -386,9 +385,9 @@ function drawTableHeader(
   }
   doc.restore();
 
-  // Vertical separators inside the copper band.
+  // Vertical separators inside the heading row.
   doc.save();
-  doc.strokeColor(COPPER_DEEP).lineWidth(0.5);
+  doc.strokeColor(EDGE_STRONG).lineWidth(0.5);
   for (let i = 1; i < cols.length; i++) {
     doc
       .moveTo(cols[i].x, y)
@@ -397,11 +396,12 @@ function drawTableHeader(
   }
   doc.restore();
 
-  // Strong divider under the header — visually anchors the table grid.
+  // Copper rule under the header — anchors the table grid and keeps the
+  // heading distinct even when printed in black and white.
   doc.save();
   doc
-    .strokeColor(INK)
-    .lineWidth(0.8)
+    .strokeColor(COPPER)
+    .lineWidth(1)
     .moveTo(MARGIN, y + rowH)
     .lineTo(MARGIN + totalWidth, y + rowH)
     .stroke();
@@ -448,11 +448,7 @@ function drawBodyRow(
 ): number {
   const totalWidth = cols.reduce((acc, c) => acc + c.width, 0);
 
-  // Zebra striping. Odd rows pick up canvas-2 so the eye can track
-  // across long rows; even rows keep the paper background.
-  if (index % 2 === 1) {
-    doc.save().rect(MARGIN, y, totalWidth, rowH).fill(CANVAS_2).restore();
-  }
+  // Every row on plain white — no alternate-row shading.
 
   doc.save();
   doc.fillColor(INK).font("Helvetica").fontSize(FONT_SIZE);

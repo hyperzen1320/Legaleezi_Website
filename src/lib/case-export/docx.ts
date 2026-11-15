@@ -29,14 +29,14 @@ import { LOGO_PNG_BUFFER } from "./logo";
 //   • Copper "monogram" rendered as a coloured paragraph next to the
 //     title (DOCX has no real image support without bundling a PNG —
 //     this is intentionally a text monogram, branded with copper)
-//   • Table with copper header row + alternating row shading
+//   • Table with no shading: a bold header row over a copper rule,
+//     and every body row on plain white
 //   • Footer with generated date
 
 const INK_HEX = "0A1124";
 const IVORY_HEX = "F5EBD6";
 const COPPER_HEX = "C5853A";
 const COPPER_TEXT_HEX = "1F1308";
-const CANVAS_2_HEX = "EBE2D0";
 const EDGE_HEX = "D9CFB8";
 const MUTED_HEX = "6B6253";
 
@@ -62,10 +62,10 @@ export async function generateDocx(input: CaseExportInput): Promise<Buffer> {
     children: cols.map((c, i) =>
       cell(c.label, {
         widthDxa: colWidths[i],
-        bg: COPPER_HEX,
-        color: COPPER_TEXT_HEX,
+        color: INK_HEX,
         bold: true,
         align: c.align,
+        bottomRule: COPPER_HEX,
       })
     ),
   });
@@ -77,7 +77,6 @@ export async function generateDocx(input: CaseExportInput): Promise<Buffer> {
         children: cols.map((c, i) =>
           cell(valueFor(c, row, idx), {
             widthDxa: colWidths[i],
-            bg: idx % 2 === 1 ? CANVAS_2_HEX : undefined,
             color: INK_HEX,
             align: c.align,
           })
@@ -257,6 +256,8 @@ type CellOpts = {
   color?: string;
   bold?: boolean;
   align?: "left" | "center" | "right";
+  /** Colour of a heavier rule along the cell's bottom edge. */
+  bottomRule?: string;
 };
 
 function cell(text: string, opts: CellOpts): TableCell {
@@ -270,6 +271,11 @@ function cell(text: string, opts: CellOpts): TableCell {
     width: { size: opts.widthDxa, type: WidthType.DXA },
     shading: opts.bg
       ? { type: ShadingType.CLEAR, fill: opts.bg, color: "auto" }
+      : undefined,
+    borders: opts.bottomRule
+      ? {
+          bottom: { style: BorderStyle.SINGLE, size: 12, color: opts.bottomRule },
+        }
       : undefined,
     margins: { top: 100, bottom: 100, left: 120, right: 120 },
     children: [

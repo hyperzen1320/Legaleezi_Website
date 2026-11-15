@@ -35,14 +35,12 @@ export default function HearingTrackClient({
   counts,
   officeName,
   noticeTemplate,
-  isAdmin,
 }: {
   bucket: Bucket;
   items: HearingRow[];
   counts: Counts;
   officeName: string;
   noticeTemplate: string;
-  isAdmin: boolean;
 }) {
   // Search filters the loaded bucket client-side — instant, and it carries
   // across tab switches (the component isn't remounted on navigation) so a
@@ -81,9 +79,8 @@ export default function HearingTrackClient({
             Date-wise, pending, and the full register.
           </p>
         </div>
-        {isAdmin ? (
-          <HearingExportMenu bucket={bucket} query={query} />
-        ) : null}
+        {/* Every member of the office can export the cause list. */}
+        <HearingExportMenu bucket={bucket} query={query} />
       </div>
 
       {/* Tab strip + search */}
@@ -312,7 +309,7 @@ function HearingSearch({
   );
 }
 
-/* ─── Export menu (admin) ─── */
+/* ─── Export menu ─── */
 
 function HearingExportMenu({
   bucket,
